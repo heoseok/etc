@@ -6,7 +6,7 @@ Gem::Specification.new do |s|
   s.description = "Lenz base"
   s.authors     = ["Seok Heo"]
   s.email       = 'heoseok87@leevi.co.kr'
-  s.files       = ["lib/base.rb"]
+  s.files       = ["lib/lenz_base.rb"]
   s.license       = 'MIT'
   
   s.add_dependency('json', [">= 0"])
