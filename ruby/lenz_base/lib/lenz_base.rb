@@ -101,8 +101,8 @@ class LenzBase
     end
   end
 
-  def makeProcessResult(user_id, mq_info, data = nil)
-    return {:user_id=>user_id, :queue=>mq_info[:name], :data=>data}
+  def makeProcessResult(user_id, mq_info, data = nil, flag = '')
+    return {:user_id=>user_id, :queue=>mq_info[:name], :data=>data, :flag=>flag}.to_json
   end
 
   def subscribeMQ(mq_info)
