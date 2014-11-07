@@ -86,7 +86,7 @@ class LenzBase
 
   def createCqlClient(db_info)
     begin
-      client = Cassandra.cluster(db_info).connect(db_info['key_space'])
+      client = Cassandra.cluster(db_info).connect(db_info[:keyspace])
       log("Cassandra connected #{db_info}")
       return client
     rescue Exception => e

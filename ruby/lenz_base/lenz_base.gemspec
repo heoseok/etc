@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'lenz_base'
-  s.version     = '0.0.4'
+  s.version     = '0.0.6'
   s.date        = '2014-11-07'
   s.summary     = "Lenz base"
   s.description = "Lenz base"
