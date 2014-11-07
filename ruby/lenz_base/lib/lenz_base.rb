@@ -4,13 +4,16 @@ require 'json'
 require 'bunny'
 require 'mysql2'
 require 'logger'
+require 'cassandra'
 
 class LenzBase
-  def initialize()
+  def initialize(show_query = false)
     initLogger
     @sql_clients = {}
+    @cql_clients = {}
     @mq_sessions = {}
     @mq_channels = {}
+    @show_query = show_query
   end
 
   def initLogger
@@ -27,24 +30,24 @@ class LenzBase
     Kernel.sleep(duration)
   end
 
-  def getDBClient(db_info)
+  def getSqlClient(db_info)
     if(!@sql_clients[db_info])
-      @sql_clients[db_info] = createDBClient(db_info)
+      @sql_clients[db_info] = createSqlClient(db_info)
     end
     return @sql_clients[db_info]
   end
 
-  def removeDBClient(db_info)
+  def removeSqlClient(db_info)
     if(@sql_clients[db_info])
       @sql_clients[db_info].close
     end
     @sql_clients[db_info] = nil
   end
 
-  def createDBClient(db_info)
+  def createSqlClient(db_info)
     begin
       client = Mysql2::Client.new(db_info)
-      log("DB connected #{db_info}")
+      log("MySql connected #{db_info}")
       return client
     rescue Exception => e
       log e
@@ -55,12 +58,53 @@ class LenzBase
 
   def querySql(db_info, query)
     begin
-      result = getDBClient(db_info).query(query)
-      log("query launched for #{db_info}")
+      result = getSqlClient(db_info).query(query)
+      log("SQL query launched for #{db_info}")
+      log(query) if @show_query
       return result ? result.entries : nil
     rescue Exception => e
       log e
-      removeDBClient(db_info)
+      removeSqlClient(db_info)
+      sleep(5)
+      retry
+    end
+  end
+
+  def getCqlClient(db_info)
+    if(!@cql_clients[db_info])
+      @cql_clients[db_info] = createCqlClient(db_info)
+    end
+    return @cql_clients[db_info]
+  end
+
+  def removeCqlClient(db_info)
+    if(@cql_clients[db_info])
+      @cql_clients[db_info].close
+    end
+    @cql_clients[db_info] = nil
+  end
+
+  def createCqlClient(db_info)
+    begin
+      client = Cassandra.cluster(db_info).connect(db_info['key_space'])
+      log("Cassandra connected #{db_info}")
+      return client
+    rescue Exception => e
+      log e
+      sleep(5)
+      retry
+    end
+  end
+
+  def queryCql(db_info, query)
+    begin
+      result = getCqlClient(db_info).execute(query)
+      log("CQL query launched for #{db_info}")
+      log(query) if @show_query
+      return result
+    rescue Exception => e
+      log e
+      removeCqlClient(db_info)
       sleep(5)
       retry
     end
@@ -97,7 +141,7 @@ class LenzBase
     begin
       ch = getMQChannel(mq_info)
       q  = ch.queue(mq_info[:name], mq_info[:options] == nil ? {} : mq_info[:options])
-      q.publish(message, args)
+      q.publish(toJson(message), args)
       log("message published to #{mq_info}")
     rescue Exception => e
       log e
@@ -131,6 +175,14 @@ class LenzBase
     end
   end
 
+  def toJson(val)
+    if(val.respond_to? :to_json)
+      return val.to_json
+    else
+      return val.to_s
+    end
+  end
+
   def processMQMessage(mq_info, delivery_info, properties, body)
   end
 
@@ -146,6 +198,11 @@ class LenzBase
     end
 
     @sql_clients.each do |db_info, client|
+      log("close connection on #{db_info}")
+      client.close
+    end
+
+    @cql_clients.each do |db_info, client|
       log("close connection on #{db_info}")
       client.close
     end
