@@ -80,7 +80,12 @@ class LenzBase
         @mq_sessions[mq_info].start
         log("Message Queue connected #{mq_info}")
       end
-      return @mq_sessions[mq_info].default_channel
+
+      if(@mq_sessions[mq_info].respond_to? :default_channel)
+        return @mq_sessions[mq_info].default_channel
+      else
+        return @mq_sessions[mq_info].create_channel
+      end
     rescue Exception => e
       log e
       sleep(5)
@@ -91,7 +96,7 @@ class LenzBase
   def publishToMQ(mq_info, message, args = {})
     begin
       ch = getMQChannel(mq_info)
-      q  = ch.queue(mq_info[:name], :durable => true, :arguments=>mq_info[:args])
+      q  = ch.queue(mq_info[:name], mq_info[:options] == nil ? {} : mq_info[:options])
       q.publish(message, args)
       log("message published to #{mq_info}")
     rescue Exception => e
@@ -127,5 +132,22 @@ class LenzBase
   end
 
   def processMQMessage(mq_info, delivery_info, properties, body)
+  end
+
+  def clear
+    @mq_channels.each do |mq_info, channel|
+      log("close channel in #{mq_info}")
+      channel.close
+    end
+
+    @mq_sessions.each do |mq_info, session|
+      log("close session on #{mq_info}")
+      session.close
+    end
+
+    @sql_clients.each do |db_info, client|
+      log("close connection on #{db_info}")
+      client.close
+    end
   end
 end
